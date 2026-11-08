@@ -200,7 +200,7 @@ function loadVoices(){
   let saved=''; try{saved=localStorage.getItem('ponto-voz')||'';}catch(e){}
   const opts=[...sel.options].map(o=>o.value);
   const named=n=>{const x=S.el.find(v=>v.name.startsWith(n));return x&&'el:'+x.id;};
-  const pick=[prev,saved,S.elDefault&&'el:'+S.elDefault,named('Roberta'),named('Sarah'),opts.find(v=>v.startsWith('el:')),
+  const pick=[saved,S.elDefault&&'el:'+S.elDefault,named('Roberta'),named('Sarah'),opts.find(v=>v.startsWith('el:')),
     opts.find(v=>/^br:.*(Luciana|Francisca)/.test(v)),opts[0]].find(v=>v&&opts.includes(v));
   if(pick) sel.value=pick;
 }
