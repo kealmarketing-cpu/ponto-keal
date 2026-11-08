@@ -133,6 +133,7 @@ Na Black Friday todo mentor corre atrás de gente nova.</textarea>
         <button class="b" id="prev" disabled>Voltar</button>
         <button class="b" id="again" disabled>Repetir frase</button>
         <button class="b" id="skip" disabled>Pular</button>
+        <button class="b" id="teste">Testar som</button>
       </div>
       <p class="tips">Atalhos: <kbd>espaço</kbd> pausa/continua · <kbd>R</kbd> repete · <kbd>←</kbd> volta · <kbd>→</kbd> pula. Clicar numa frase da lista começa dali.</p>
       <ol class="list" id="lista"></ol>
@@ -252,12 +253,17 @@ function sayBrowser(text,name){
   u.rate=+$('vel').value; u.onend=spoke; u.onerror=spoke;
   setTimeout(()=>{ speechSynthesis.resume(); speechSynthesis.speak(u); },60);
 }
-async function playBlobUrl(url){ // toca pelo mesmo canal de áudio liberado no clique em Começar
-  const buf=await fetch(url).then(r=>r.arrayBuffer());
-  const audio=await S.ctx.decodeAudioData(buf);
-  if(S.ctx.state!=='running') await S.ctx.resume();
-  const src=S.ctx.createBufferSource(); src.buffer=audio; src.playbackRate.value=+$('vel').value;
-  src.connect(S.ctx.destination); src.onended=spoke; src.start(); S.audio={pause(){ try{src.onended=null;src.stop();}catch(e){} }};
+const SILENCIO='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+function unlock(){ // chamado no clique: libera o som no Chrome
+  if(!S.player){ S.player=new Audio(); S.player.preload='auto'; }
+  S.player.src=SILENCIO; S.player.play().catch(()=>{});
+  if('speechSynthesis' in window){ speechSynthesis.resume(); }
+}
+function playBlobUrl(url){
+  const a=S.player||(S.player=new Audio());
+  a.onended=spoke; a.onerror=spoke; a.src=url; a.playbackRate=+$('vel').value;
+  S.audio={pause(){ a.onended=null; a.onerror=null; a.pause(); }};
+  return a.play();
 }
 function say(){
   stopVoice();
@@ -300,7 +306,7 @@ function calibrate(){
   setStatus('', 'Medindo o silêncio do ambiente…');
   return new Promise(r=>{ const vals=[]; const t0=performance.now();
     (function m(){ vals.push(db()); if(performance.now()-t0<900) requestAnimationFrame(m);
-      else{ vals.sort((a,b)=>a-b); S.floor=vals[Math.floor(vals.length*.6)]; r(); } })(); });
+      else{ vals.sort((a,b)=>a-b); S.floor=Math.max(-70,vals[Math.floor(vals.length*.6)]); r(); } })(); });
 }
 function loop(){
   const now=performance.now(), lv=db(), thr=S.floor+(30- +$('sens').value); // mais à direita = mais sensível
@@ -324,6 +330,7 @@ function loop(){
 async function start(){
   if(S.running && S.paused){ togglePause(); return; }
   if(S.running){ return; }
+  unlock();
   S.frases=split(); if(!S.frases.length){ $('now').textContent='Cola o roteiro primeiro.'; return; }
   if(S.i>=S.frases.length) S.i=0;
   $('start').disabled=true;
@@ -347,6 +354,14 @@ function finish(){
   S.i=S.frases.length; show(); S.i=0;
 }
 $('start').onclick=()=> S.running ? togglePause() : start();
+$('teste').onclick=()=>{
+  unlock(); const v=$('voz').value, t='Oi, Ketchi. Esse é o teste de som do ponto.';
+  setStatus('speak','Testando o som…');
+  const fim=()=>setStatus('','Se você ouviu a frase, está tudo certo. Pode começar.');
+  if(v.startsWith('el:')) elUrl(t).then(u=>{ const a=S.player; a.onended=fim; a.onerror=()=>setStatus('','O Chrome não tocou o áudio. Confere o volume e a saída de som do Mac.'); a.src=u; a.play().catch(a.onerror); })
+    .catch(()=>setStatus('','ElevenLabs não respondeu. Escolhe outra voz e testa de novo.'));
+  else { const u=new SpeechSynthesisUtterance(t); const bv=speechSynthesis.getVoices().find(x=>x.name===v.slice(3)); if(bv){u.voice=bv;u.lang=bv.lang;} u.onend=fim; speechSynthesis.cancel(); setTimeout(()=>speechSynthesis.speak(u),60); }
+};
 $('again').onclick=()=>{ S.paused=false; $('start').textContent='Pausar'; say(); };
 $('skip').onclick=()=>{ S.paused=false; $('start').textContent='Pausar'; S.i++; say(); };
 $('prev').onclick=()=>{ S.paused=false; $('start').textContent='Pausar'; S.i=Math.max(0,S.i-1); say(); };
