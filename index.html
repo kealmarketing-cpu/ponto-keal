@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ponto no Ouvido</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: uma coluna de estúdio — roteiro à esquerda, frase atual grande em destaque */
+:root{
+  --bg:#f6f2ee; --surface:#fffdfb; --ink:#1d1517; --muted:#76696c; --line:#e4dad5;
+  --wine:#6e1f2e; --wine-soft:#f1e3e5; --live:#2f7d5b;
+  --display:"Fraunces",Georgia,serif; --body:"Manrope",system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#141012; --surface:#1d1719; --ink:#f3ecea; --muted:#a3979a; --line:#33292c;
+  --wine:#d77a8b; --wine-soft:#3a2328; --live:#5cc495; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);padding:28px max(16px,env(safe-area-inset-left)) 48px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:24px}
+header{display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:12px}
+h1{font:600 clamp(28px,4vw,40px)/1.05 var(--display);margin:0;letter-spacing:-.01em}
+h1 span{color:var(--wine)}
+.sub{color:var(--muted);margin:6px 0 0;max-width:60ch}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:24px}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;gap:14px;min-width:0}
+label{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+textarea{width:100%;min-height:260px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:15px/1.6 var(--body);padding:12px}
+select,input[type=range]{width:100%}
+select{border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:14px var(--body);padding:8px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field{display:grid;gap:6px}
+.val{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600;text-transform:none;letter-spacing:0}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);font:600 13px var(--body);padding:8px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--wine);color:#fff}
+.stage{display:grid;gap:18px;align-content:start}
+.status{display:flex;align-items:center;gap:10px;font-weight:600;font-size:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.status.speak .dot{background:var(--wine)}
+.status.listen .dot{background:var(--live);animation:pulse 1.2s infinite}
+.status.hear .dot{background:var(--live)}
+@keyframes pulse{50%{opacity:.3}}
+.meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden;position:relative}
+.meter i{position:absolute;inset:0 auto 0 0;background:var(--live);width:0;transition:width .06s}
+.meter b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--wine)}
+.now{font:500 clamp(24px,3.4vw,36px)/1.25 var(--display);min-height:3.8em;text-wrap:balance;margin:0}
+.next{color:var(--muted);min-height:1.5em;margin:0}
+.count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px}
+.controls{display:flex;flex-wrap:wrap;gap:8px}
+button.b{border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px var(--body);padding:11px 16px;border-radius:10px;cursor:pointer}
+button.b.primary{background:var(--wine);border-color:var(--wine);color:#fff;padding-inline:24px}
+button.b:disabled{opacity:.4;cursor:default}
+button:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--wine);outline-offset:2px}
+ol.list{margin:0;padding:0;list-style:none;display:grid;gap:2px;max-height:280px;overflow:auto;counter-reset:f}
+ol.list li{counter-increment:f;display:grid;grid-template-columns:2.2em 1fr;padding:6px 8px;border-radius:8px;color:var(--muted);cursor:pointer}
+ol.list li::before{content:counter(f);font-variant-numeric:tabular-nums;font-size:12px;padding-top:2px}
+ol.list li.done{opacity:.55}
+ol.list li.cur{background:var(--wine-soft);color:var(--ink);font-weight:600}
+.tips{color:var(--muted);font-size:13px;margin:0}
+kbd{font:600 11px var(--body);border:1px solid var(--line);border-radius:4px;padding:1px 5px;background:var(--bg)}
+.err{color:var(--wine);font-weight:600}
+@media (prefers-reduced-motion:reduce){.status.listen .dot{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Ponto <span>no ouvido</span></h1>
+      <p class="sub">Cola o roteiro inteiro, coloca o fone e aperta Começar. Ele fala uma frase, espera você repetir e só então solta a próxima.</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="field">
+        <label for="roteiro">Roteiro</label>
+        <textarea id="roteiro">REEL · Teu ex-aluno é a primeira conversa da Black Friday
+[0 a 2s · GANCHO]
+"Na Black Friday, todo mentor corre atrás de gente nova."
+"E esquece de quem já comprou dele."
+[TELA: abre a caixa de mensagens do Instagram, fundo branco, atrás dela.]
+[2 a 7s]
+"Uma pesquisa da Globo mostrou que 40% das pessoas preferem comprar de quem já atendeu bem."
+"Esse é o teu ex-aluno."
+* Você: "Oi, Carla!"
+LEGENDA
+Na Black Friday todo mentor corre atrás de gente nova.</textarea>
+      </div>
+      <div class="field">
+        <label>O que ele lê</label>
+        <div class="seg" role="group" aria-label="Como separar as frases">
+          <button type="button" id="modoAspas" aria-pressed="true">Só o que está entre aspas</button>
+          <button type="button" id="modoLinha" aria-pressed="false">Uma por linha</button>
+          <button type="button" id="modoPonto" aria-pressed="false">Por pontuação</button>
+        </div>
+        <p class="tips">Pode colar o roteiro inteiro do jeito que vem. Ele lê só as linhas que começam com aspas e ignora títulos, [GANCHO], [TELA], a conversa do Direct com marcador e a legenda.</p>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="voz">Voz</label>
+          <select id="voz"></select>
+        </div>
+        <div class="field">
+          <label for="vel">Velocidade <span class="val" id="velV">1.0x</span></label>
+          <input type="range" id="vel" min="0.7" max="1.5" step="0.05" value="1">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="pausa">Pausa pra virar <span class="val" id="pausaV">0,9 s</span></label>
+          <input type="range" id="pausa" min="0.4" max="2.5" step="0.1" value="0.9">
+        </div>
+        <div class="field">
+          <label for="sens">Sensibilidade <span class="val" id="sensV">média</span></label>
+          <input type="range" id="sens" min="6" max="24" step="1" value="12">
+        </div>
+      </div>
+      <p class="tips">Pausa pra virar: quanto silêncio depois da sua fala conta como "terminei". Se ele pula antes de você acabar, aumenta. Se ele não te escuta, sobe a sensibilidade.</p>
+    </section>
+
+    <section class="panel stage">
+      <div class="status" id="status"><span class="dot"></span><span id="statusTxt">Pronto pra começar</span></div>
+      <div class="meter" aria-hidden="true"><i id="lvl"></i><b id="thr"></b></div>
+      <p class="count" id="count">—</p>
+      <p class="now" id="now">A frase atual aparece aqui também, como apoio.</p>
+      <p class="next" id="next"></p>
+      <div class="controls">
+        <button class="b primary" id="start">Começar</button>
+        <button class="b" id="prev" disabled>Voltar</button>
+        <button class="b" id="again" disabled>Repetir frase</button>
+        <button class="b" id="skip" disabled>Pular</button>
+      </div>
+      <p class="tips">Atalhos: <kbd>espaço</kbd> pausa/continua · <kbd>R</kbd> repete · <kbd>←</kbd> volta · <kbd>→</kbd> pula. Clicar numa frase da lista começa dali.</p>
+      <ol class="list" id="lista"></ol>
+    </section>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const S = { frases:[], i:0, running:false, paused:false, mode:'aspas',
+  phase:'idle', ctx:null, an:null, buf:null, floor:-60, voiceStart:0, lastVoice:0, ttsEnd:0, raf:0 };
+
+/* ---------- frases ---------- */
+function split(){
+  const t = $('roteiro').value.trim();
+  if(!t) return [];
+  if(S.mode==='aspas'){
+    const out=[];
+    t.split(/\n/).forEach(l=>{
+      l=l.trim();
+      if(!/^["“”]/.test(l)) return;           // só falas: a linha começa com aspas
+      const m=l.match(/["“]([^"“”]+)["”]/g);
+      (m||[l]).forEach(q=>{ q=q.replace(/^["“”]+|["“”]+$/g,'').trim(); if(q) out.push(q); });
+    });
+    return out;
+  }
+  if(S.mode==='linha') return t.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  return t.replace(/\n+/g,' ').match(/[^.!?…]+[.!?…]*["”']?/g).map(s=>s.trim()).filter(Boolean);
+}
+function renderList(){
+  const ol=$('lista'); ol.innerHTML='';
+  S.frases.forEach((f,k)=>{
+    const li=document.createElement('li');
+    li.textContent=f; li.className = k<S.i?'done':(k===S.i&&S.running?'cur':'');
+    li.onclick=()=>{ S.i=k; if(!S.running) start(); else say(); };
+    ol.appendChild(li);
+  });
+  const cur=ol.querySelector('.cur'); if(cur) cur.scrollIntoView({block:'nearest'});
+}
+function show(){
+  const f=S.frases;
+  $('now').textContent = f[S.i] || 'Fim do roteiro. Pode cortar.';
+  $('next').textContent = f[S.i+1] ? 'Depois: '+f[S.i+1] : '';
+  $('count').textContent = f.length ? `Frase ${Math.min(S.i+1,f.length)} de ${f.length}` : '—';
+  renderList();
+}
+const MODOS={modoAspas:'aspas',modoLinha:'linha',modoPonto:'ponto'};
+Object.keys(MODOS).forEach(id=>$(id).onclick=()=>{
+  S.mode = MODOS[id];
+  Object.keys(MODOS).forEach(k=>$(k).setAttribute('aria-pressed',S.mode===MODOS[k]));
+  if(!S.running){S.frases=split();show();}
+});
+$('roteiro').addEventListener('input',()=>{ if(!S.running){S.frases=split();show();} });
+
+/* ---------- voz ---------- */
+S.el=[]; S.elDefault=''; S.audio=null; S.cache=new Map();
+function loadVoices(){
+  const vs=('speechSynthesis' in window)?speechSynthesis.getVoices():[]; const sel=$('voz'); const prev=sel.value;
+  const pt=vs.filter(v=>/^pt/i.test(v.lang)); const list=pt.length?pt:vs;
+  sel.innerHTML='';
+  if(S.el.length){ const g=document.createElement('optgroup'); g.label='ElevenLabs';
+    S.el.forEach(v=>{const o=document.createElement('option');o.value='el:'+v.id;o.textContent=v.name;g.appendChild(o);}); sel.appendChild(g); }
+  const g2=document.createElement('optgroup'); g2.label='Vozes do navegador';
+  list.forEach(v=>{const o=document.createElement('option');o.value='br:'+v.name;o.textContent=`${v.name} (${v.lang})`;g2.appendChild(o);}); sel.appendChild(g2);
+  let saved=''; try{saved=localStorage.getItem('ponto-voz')||'';}catch(e){}
+  const opts=[...sel.options].map(o=>o.value);
+  const pick=[prev,saved,S.elDefault&&'el:'+S.elDefault,opts.find(v=>v.startsWith('el:')),
+    opts.find(v=>/^br:.*(Luciana|Francisca)/.test(v)),opts[0]].find(v=>v&&opts.includes(v));
+  if(pick) sel.value=pick;
+}
+$('voz').onchange=e=>{ try{localStorage.setItem('ponto-voz',e.target.value);}catch(_){} S.cache.clear(); };
+if('speechSynthesis' in window) speechSynthesis.onvoiceschanged=loadVoices;
+loadVoices();
+fetch('/api/voices').then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.voices){S.el=d.voices;S.elDefault=d.default||'';loadVoices();} }).catch(()=>{});
+function elUrl(text){
+  const id=$('voz').value.slice(3);
+  if(!S.cache.has(text)){
+    S.cache.set(text, fetch('/api/tts?voice='+encodeURIComponent(id)+'&text='+encodeURIComponent(text))
+      .then(r=>{ if(!r.ok) throw new Error('tts'); return r.blob(); }).then(b=>URL.createObjectURL(b))
+      .catch(e=>{ S.cache.delete(text); throw e; }));
+  }
+  return S.cache.get(text);
+}
+function stopVoice(){ if('speechSynthesis' in window) speechSynthesis.cancel(); if(S.audio){S.audio.pause();S.audio=null;} }
+$('vel').oninput=e=>$('velV').textContent=(+e.target.value).toFixed(2).replace(/0$/,'')+'x';
+$('pausa').oninput=e=>$('pausaV').textContent=(+e.target.value).toFixed(1).replace('.',',')+' s';
+$('sens').oninput=e=>{const v=+e.target.value;$('sensV').textContent=v>20?'alta':v<13?'baixa':'média';};
+
+function setStatus(cls,txt){ $('status').className='status '+cls; $('statusTxt').textContent=txt; }
+
+function spoke(){
+  if(S.phase!=='speak'||S.paused) return;
+  S.ttsEnd=performance.now(); S.phase='wait'; S.voiceStart=0;
+  setStatus('listen','Sua vez. Pode falar.');
+}
+function sayBrowser(text,name){
+  const u=new SpeechSynthesisUtterance(text);
+  const v=speechSynthesis.getVoices().find(v=>v.name===name) || speechSynthesis.getVoices().find(v=>/pt-BR/i.test(v.lang));
+  if(v){u.voice=v;u.lang=v.lang;} else u.lang='pt-BR';
+  u.rate=+$('vel').value; u.onend=spoke; speechSynthesis.speak(u);
+}
+function say(){
+  stopVoice();
+  show();
+  if(S.i>=S.frases.length){ finish(); return; }
+  S.phase='speak'; setStatus('speak','Falando no seu ouvido…');
+  const text=S.frases[S.i], v=$('voz').value, my=S.i;
+  if(v.startsWith('el:')){
+    elUrl(text).then(url=>{
+      if(S.i!==my||S.phase!=='speak') return;
+      const a=new Audio(url); a.playbackRate=+$('vel').value; a.onended=spoke; S.audio=a; a.play();
+      if(S.frases[my+1]) elUrl(S.frases[my+1]).catch(()=>{});
+    }).catch(()=>{ if(S.i===my){ setStatus('speak','ElevenLabs não respondeu, usando a voz do navegador'); sayBrowser(text,''); } });
+  } else sayBrowser(text,v.slice(3));
+}
+
+/* ---------- microfone ---------- */
+async function mic(){
+  if(S.ctx) return true;
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+    S.ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const src=S.ctx.createMediaStreamSource(stream);
+    S.an=S.ctx.createAnalyser(); S.an.fftSize=1024; src.connect(S.an);
+    S.buf=new Float32Array(S.an.fftSize);
+    await calibrate();
+    loop(); return true;
+  }catch(e){
+    setStatus('', ''); $('statusTxt').innerHTML='<span class="err">Não consegui usar o microfone. Libera o acesso no navegador e tenta de novo.</span>';
+    return false;
+  }
+}
+function db(){
+  S.an.getFloatTimeDomainData(S.buf);
+  let s=0; for(const x of S.buf) s+=x*x;
+  return 20*Math.log10(Math.sqrt(s/S.buf.length)+1e-9);
+}
+function calibrate(){
+  setStatus('', 'Medindo o silêncio do ambiente…');
+  return new Promise(r=>{ const vals=[]; const t0=performance.now();
+    (function m(){ vals.push(db()); if(performance.now()-t0<900) requestAnimationFrame(m);
+      else{ vals.sort((a,b)=>a-b); S.floor=vals[Math.floor(vals.length*.6)]; r(); } })(); });
+}
+function loop(){
+  const now=performance.now(), lv=db(), thr=S.floor+(30- +$('sens').value); // mais à direita = mais sensível
+  const pct=x=>Math.max(0,Math.min(100,(x+70)/60*100));
+  $('lvl').style.width=pct(lv)+'%'; $('thr').style.left=pct(thr)+'%';
+  const loud = lv>thr;
+  if(S.running && !S.paused && (S.phase==='wait'||S.phase==='hear') && now-S.ttsEnd>250){
+    if(loud){
+      if(!S.voiceStart) S.voiceStart=now;
+      S.lastVoice=now;
+      if(S.phase==='wait' && now-S.voiceStart>180){ S.phase='hear'; setStatus('hear','Te ouvindo…'); }
+    } else if(S.phase==='wait' && S.voiceStart && now-S.lastVoice>250){ S.voiceStart=0; }
+    if(S.phase==='hear' && !loud && now-S.lastVoice > +$('pausa').value*1000){
+      S.i++; say();
+    }
+  }
+  S.raf=requestAnimationFrame(loop);
+}
+
+/* ---------- controles ---------- */
+async function start(){
+  if(S.running && S.paused){ togglePause(); return; }
+  if(S.running){ return; }
+  S.frases=split(); if(!S.frases.length){ $('now').textContent='Cola o roteiro primeiro.'; return; }
+  if(S.i>=S.frases.length) S.i=0;
+  $('start').disabled=true;
+  if(!(await mic())){ $('start').disabled=false; return; }
+  S.running=true; S.paused=false;
+  $('start').disabled=false; $('start').textContent='Pausar';
+  ['prev','again','skip'].forEach(id=>$(id).disabled=false);
+  $('roteiro').disabled=true;
+  say();
+}
+function togglePause(){
+  if(!S.running) return start();
+  S.paused=!S.paused;
+  if(S.paused){ stopVoice(); S.phase='idle'; setStatus('','Pausado'); $('start').textContent='Continuar'; }
+  else { $('start').textContent='Pausar'; say(); }
+}
+function finish(){
+  S.running=false; S.phase='idle'; setStatus('','Roteiro concluído');
+  $('start').textContent='Começar de novo'; $('roteiro').disabled=false;
+  ['prev','again','skip'].forEach(id=>$(id).disabled=true);
+  S.i=S.frases.length; show(); S.i=0;
+}
+$('start').onclick=()=> S.running ? togglePause() : start();
+$('again').onclick=()=>{ S.paused=false; $('start').textContent='Pausar'; say(); };
+$('skip').onclick=()=>{ S.paused=false; $('start').textContent='Pausar'; S.i++; say(); };
+$('prev').onclick=()=>{ S.paused=false; $('start').textContent='Pausar'; S.i=Math.max(0,S.i-1); say(); };
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='TEXTAREA') return;
+  if(e.code==='Space'){ e.preventDefault(); S.running?togglePause():start(); }
+  else if(!S.running) return;
+  else if(e.key==='r'||e.key==='R') $('again').click();
+  else if(e.key==='ArrowRight') $('skip').click();
+  else if(e.key==='ArrowLeft') $('prev').click();
+});
+
+S.frases=split(); show();
+</script>
+</body>
+</html>
