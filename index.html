@@ -199,7 +199,8 @@ function loadVoices(){
   list.forEach(v=>{const o=document.createElement('option');o.value='br:'+v.name;o.textContent=`${v.name} (${v.lang})`;g2.appendChild(o);}); sel.appendChild(g2);
   let saved=''; try{saved=localStorage.getItem('ponto-voz')||'';}catch(e){}
   const opts=[...sel.options].map(o=>o.value);
-  const pick=[prev,saved,S.elDefault&&'el:'+S.elDefault,opts.find(v=>v.startsWith('el:')),
+  const named=n=>{const x=S.el.find(v=>v.name.startsWith(n));return x&&'el:'+x.id;};
+  const pick=[prev,saved,S.elDefault&&'el:'+S.elDefault,named('Roberta'),named('Sarah'),opts.find(v=>v.startsWith('el:')),
     opts.find(v=>/^br:.*(Luciana|Francisca)/.test(v)),opts[0]].find(v=>v&&opts.includes(v));
   if(pick) sel.value=pick;
 }
@@ -207,14 +208,24 @@ $('voz').onchange=e=>{ try{localStorage.setItem('ponto-voz',e.target.value);}cat
 if('speechSynthesis' in window) speechSynthesis.onvoiceschanged=loadVoices;
 loadVoices();
 fetch('/api/voices').then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.voices){S.el=d.voices;S.elDefault=d.default||'';loadVoices();} }).catch(()=>{});
+S.blocked=new Set();
+function voiceId(){
+  let id=$('voz').value.slice(3);
+  if(S.blocked.has(id)){ const alt=S.el.find(v=>v.name.startsWith('Sarah')&&!S.blocked.has(v.id))||S.el.find(v=>!S.blocked.has(v.id)); id=alt?alt.id:''; }
+  return id;
+}
+function fetchTts(id,text){
+  return fetch('/api/tts?voice='+encodeURIComponent(id)+'&text='+encodeURIComponent(text)).then(r=>{
+    if(r.status===502||r.status===402){ if(!S.blocked.has(id)){ S.blocked.add(id); const nid=voiceId(); if(nid) return fetchTts(nid,text); } }
+    if(!r.ok) throw new Error('tts'); return r.blob();
+  });
+}
 function elUrl(text){
-  const id=$('voz').value.slice(3);
-  if(!S.cache.has(text)){
-    S.cache.set(text, fetch('/api/tts?voice='+encodeURIComponent(id)+'&text='+encodeURIComponent(text))
-      .then(r=>{ if(!r.ok) throw new Error('tts'); return r.blob(); }).then(b=>URL.createObjectURL(b))
-      .catch(e=>{ S.cache.delete(text); throw e; }));
+  const key=voiceId()+'|'+text;
+  if(!S.cache.has(key)){
+    S.cache.set(key, fetchTts(voiceId(),text).then(b=>URL.createObjectURL(b)).catch(e=>{ S.cache.delete(key); throw e; }));
   }
-  return S.cache.get(text);
+  return S.cache.get(key);
 }
 function stopVoice(){ if('speechSynthesis' in window) speechSynthesis.cancel(); if(S.audio){S.audio.pause();S.audio=null;} }
 $('vel').oninput=e=>$('velV').textContent=(+e.target.value).toFixed(2).replace(/0$/,'')+'x';
