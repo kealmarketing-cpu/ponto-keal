@@ -197,14 +197,14 @@ function loadVoices(){
     S.el.forEach(v=>{const o=document.createElement('option');o.value='el:'+v.id;o.textContent=v.name;g.appendChild(o);}); sel.appendChild(g); }
   const g2=document.createElement('optgroup'); g2.label='Vozes do navegador';
   list.forEach(v=>{const o=document.createElement('option');o.value='br:'+v.name;o.textContent=`${v.name} (${v.lang})`;g2.appendChild(o);}); sel.appendChild(g2);
-  let saved=''; try{saved=localStorage.getItem('ponto-voz')||'';}catch(e){}
+  let saved=''; try{saved=localStorage.getItem('ponto-voz2')||'';}catch(e){}
   const opts=[...sel.options].map(o=>o.value);
   const named=n=>{const x=S.el.find(v=>v.name.startsWith(n));return x&&'el:'+x.id;};
   const pick=[saved,S.elDefault&&'el:'+S.elDefault,named('Roberta'),named('Sarah'),opts.find(v=>v.startsWith('el:')),
     opts.find(v=>/^br:.*(Luciana|Francisca)/.test(v)),opts[0]].find(v=>v&&opts.includes(v));
   if(pick) sel.value=pick;
 }
-$('voz').onchange=e=>{ try{localStorage.setItem('ponto-voz',e.target.value);}catch(_){} S.cache.clear(); };
+$('voz').onchange=e=>{ try{localStorage.setItem('ponto-voz2',e.target.value);}catch(_){} S.cache.clear(); };
 if('speechSynthesis' in window) speechSynthesis.onvoiceschanged=loadVoices;
 loadVoices();
 fetch('/api/voices').then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.voices){S.el=d.voices;S.elDefault=d.default||'';loadVoices();} }).catch(()=>{});
@@ -227,7 +227,7 @@ function elUrl(text){
   }
   return S.cache.get(key);
 }
-function stopVoice(){ if('speechSynthesis' in window) speechSynthesis.cancel(); if(S.audio){S.audio.pause();S.audio=null;} }
+function stopVoice(){ clearTimeout(S.guard); if('speechSynthesis' in window) speechSynthesis.cancel(); if(S.audio){S.audio.pause();S.audio=null;} }
 $('vel').oninput=e=>$('velV').textContent=(+e.target.value).toFixed(2).replace(/0$/,'')+'x';
 $('pausa').oninput=e=>$('pausaV').textContent=(+e.target.value).toFixed(1).replace('.',',')+' s';
 $('sens').oninput=e=>{const v=+e.target.value;$('sensV').textContent=v>20?'alta':v<13?'baixa':'média';};
@@ -235,15 +235,29 @@ $('sens').oninput=e=>{const v=+e.target.value;$('sensV').textContent=v>20?'alta'
 function setStatus(cls,txt){ $('status').className='status '+cls; $('statusTxt').textContent=txt; }
 
 function spoke(){
+  clearTimeout(S.guard);
   if(S.phase!=='speak'||S.paused) return;
   S.ttsEnd=performance.now(); S.phase='wait'; S.voiceStart=0;
   setStatus('listen','Sua vez. Pode falar.');
 }
+function guard(text){ // se a voz não terminar, não fica travado: passa pra tua vez
+  clearTimeout(S.guard);
+  S.guard=setTimeout(()=>{ if(S.phase==='speak'){ stopVoice(); spoke(); } }, 4000+text.length*110/(+$('vel').value||1));
+}
 function sayBrowser(text,name){
+  speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text);
   const v=speechSynthesis.getVoices().find(v=>v.name===name) || speechSynthesis.getVoices().find(v=>/pt-BR/i.test(v.lang));
   if(v){u.voice=v;u.lang=v.lang;} else u.lang='pt-BR';
-  u.rate=+$('vel').value; u.onend=spoke; speechSynthesis.speak(u);
+  u.rate=+$('vel').value; u.onend=spoke; u.onerror=spoke;
+  setTimeout(()=>{ speechSynthesis.resume(); speechSynthesis.speak(u); },60);
+}
+async function playBlobUrl(url){ // toca pelo mesmo canal de áudio liberado no clique em Começar
+  const buf=await fetch(url).then(r=>r.arrayBuffer());
+  const audio=await S.ctx.decodeAudioData(buf);
+  if(S.ctx.state!=='running') await S.ctx.resume();
+  const src=S.ctx.createBufferSource(); src.buffer=audio; src.playbackRate.value=+$('vel').value;
+  src.connect(S.ctx.destination); src.onended=spoke; src.start(); S.audio={pause(){ try{src.onended=null;src.stop();}catch(e){} }};
 }
 function say(){
   stopVoice();
@@ -251,12 +265,13 @@ function say(){
   if(S.i>=S.frases.length){ finish(); return; }
   S.phase='speak'; setStatus('speak','Falando no seu ouvido…');
   const text=S.frases[S.i], v=$('voz').value, my=S.i;
+  guard(text);
   if(v.startsWith('el:')){
     elUrl(text).then(url=>{
       if(S.i!==my||S.phase!=='speak') return;
-      const a=new Audio(url); a.playbackRate=+$('vel').value; a.onended=spoke; S.audio=a; a.play();
-      if(S.frases[my+1]) elUrl(S.frases[my+1]).catch(()=>{});
-    }).catch(()=>{ if(S.i===my){ setStatus('speak','ElevenLabs não respondeu, usando a voz do navegador'); sayBrowser(text,''); } });
+      guard(text);
+      return playBlobUrl(url).then(()=>{ if(S.frases[my+1]) elUrl(S.frases[my+1]).catch(()=>{}); });
+    }).catch(()=>{ if(S.i===my&&S.phase==='speak'){ setStatus('speak','ElevenLabs não respondeu, usando a voz do navegador'); sayBrowser(text,''); } });
   } else sayBrowser(text,v.slice(3));
 }
 
