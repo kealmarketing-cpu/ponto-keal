@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "metas.keal.com.br" }],
+      "destination": "https://claude.ai/artifact/VvA4XhDZ2twYy9L1JNH1DV",
+      "permanent": false
+    }
+  ]
+}
